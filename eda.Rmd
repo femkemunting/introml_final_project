@@ -21,7 +21,7 @@ library(randomForest)
 library(rpart.plot)
 
 ```
-
+sss
 Our first step is to explore our data set. The Kaggle website for the data set had relatively complete variable descriptions, as well as 
 
 ``` {r EDA Part 1}
