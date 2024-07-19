@@ -88,10 +88,16 @@ duplicates_sorted_2 <- filtered_spotify %>%
 plot(danceability ~ tempo)
 plot(danceability, popularity)
 
-non_quant_variables = c(track_id, artists, album_name, track_name, explicit, track_genre)
+non_quant_variables = c("track_id", "artists", "album_name", "track_name", "explicit", "track_genre")
 
-plot(danceability ~ . - track_id - artists - album_name - track_name - explicit - track_genre, data = filtered_spotify)
+quant_variables <-
+  filtered_spotify %>% 
+  select_if(is.numeric) 
 
+quant_variables <- quant_variables[,  2:16]
 
+cor(quant_variables)
+
+pairs(quant_variables)
 
 ```
