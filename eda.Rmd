@@ -19,6 +19,7 @@ library(caret)
 library(MASS)
 library(randomForest)
 library(rpart.plot)
+library(math)
 
 ```
 
@@ -30,8 +31,34 @@ spotify = read.csv("spotify_dataset.csv")
 ```
 
 Removing rows with time_signature = 0
-```{r}
-filtered_spotify <- spotify %>% filter(time_signature != 0)
-summary(filtered_spotify)
+```{r filtering}
+filtered_spotify <- 
+  spotify %>% 
+  filter(
+    time_signature %in% c(3, 4, 5, 6, 7))
+
+attach(filtered_spotify)
+
+# No missing values:
+
+sum_isna <- sum(is.na(filtered_spotify))
+sum_isna
+
+
+# Count duplicates:
+
+sum(duplicated(track_id))
+
+# Check that the duplicates are the same for everything else
+filtered_spotify %>% group_by(track_id)
+
 ```
 
+``` {r Plotting}
+plot(danceability ~ tempo)
+plot(danceability, popularity)
+cor(tempo, danceability)
+
+
+
+```
