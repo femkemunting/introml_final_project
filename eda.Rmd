@@ -54,6 +54,8 @@ filtered_spotify <-
   filtered_spotify %>%
   group_by(track_name, artists) %>% 
   filter(popularity == max(popularity))
+
+
  
 #Test:  
 filtered_spotify %>% filter(track_name == "Run Rudolph Run")
@@ -72,13 +74,22 @@ duplicates_sorted <- filtered_spotify %>%
 filtered_spotify <-
   filtered_spotify %>% 
   group_by(track_id) %>% 
+  sample_n(1)
   
-
+duplicates_sorted_2 <- filtered_spotify %>%
+  group_by(track_id) %>%
+  filter(n() > 1) %>%
+  arrange(track_id)
+  
+  
 ```
 
 ``` {r Plotting}
 plot(danceability ~ tempo)
 plot(danceability, popularity)
+
+
+
 cor(tempo, danceability)
 
 
