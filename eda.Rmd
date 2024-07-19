@@ -7,7 +7,7 @@ date: "2024-07-19"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-#test
+
 ``` {Libraries}
 
 library(tidyverse)
@@ -31,7 +31,7 @@ spotify = read.csv("spotify_dataset.csv")
 
 Removing rows with time_signature = 0
 ```{r}
-filtered_spotify <- spotify %>% filter(time_signature != 0)
+filtered_spotify <- spotify %>% filter(time_signature %in% c(3, 4, 5, 6, 7))
 summary(filtered_spotify)
 ```
 
