@@ -68,7 +68,7 @@ duplicates_sorted <- filtered_spotify %>%
   filter(n() > 1) %>%
   arrange(track_id)
 
-
+ 
 # Some songs have the same track_id but are in different genres
 
 filtered_spotify <-
