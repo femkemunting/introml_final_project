@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ``` {Libraries}
 
 library(tidyverse)
+library(dplyr)
 library(gbm)
 library(tree)
 library(rpart)
@@ -26,5 +27,11 @@ Our first step is to explore our data set. The Kaggle website for the data set h
 ``` {r EDA Part 1}
 spotify = read.csv("spotify_dataset.csv")
 
-
 ```
+
+Removing rows with time_signature = 0
+```{r}
+filtered_spotify <- spotify %>% filter(time_signature != 0)
+summary(filtered_spotify)
+```
+
