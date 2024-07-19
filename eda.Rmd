@@ -8,9 +8,13 @@ date: "2024-07-19"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+<<<<<<< HEAD
 
 
 ## R Markdown
+=======
+## R Markdowns #test
+>>>>>>> b7a4fdb61f96abbeb46204bf89818fa38d1fe36a
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
