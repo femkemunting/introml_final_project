@@ -8,7 +8,7 @@ date: "2024-07-19"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 #test
-``` {Libraries} 
+``` {Libraries}
 
 library(tidyverse)
 library(dplyr)
@@ -54,9 +54,13 @@ filtered_spotify <-
   filtered_spotify %>%
   group_by(track_name, artists) %>% 
   filter(popularity == max(popularity))
+
+
  
 #Test:  
 filtered_spotify %>% filter(track_name == "Run Rudolph Run")
+
+
 
 # View duplicate track_ids
 duplicates_sorted <- filtered_spotify %>%
@@ -64,19 +68,28 @@ duplicates_sorted <- filtered_spotify %>%
   filter(n() > 1) %>%
   arrange(track_id)
 
-
+ 
 # Some songs have the same track_id but are in different genres
 
 filtered_spotify <-
   filtered_spotify %>% 
   group_by(track_id) %>% 
+  sample_n(1)
   
-
+duplicates_sorted_2 <- filtered_spotify %>%
+  group_by(track_id) %>%
+  filter(n() > 1) %>%
+  arrange(track_id)
+  
+  
 ```
 
 ``` {r Plotting}
 plot(danceability ~ tempo)
 plot(danceability, popularity)
+
+
+
 cor(tempo, danceability)
 
 
