@@ -34,4 +34,22 @@ Removing rows with time_signature = 0
 filtered_spotify <- spotify %>% filter(time_signature %in% c(3, 4, 5, 6, 7))
 summary(filtered_spotify)
 ```
+Finding the duplicates and comparing them
+
+```{r}
+spotify_unique <- filtered_spotify %>% distinct()
+duplicates_sorted <- spotify %>%
+  group_by(track_id) %>%
+  filter(n() > 1) %>%
+  arrange(track_id)
+```
+
+Linear model to see relation between variables
+```{r}
+spotify_lm_dataset <- filtered_spotify %>% select(-X, -track_id, -artists, -album_name, -track_name, -track_genre, -explicit)
+filtered_spotify_lm <- lm(popularity ~ ., data = spotify_lm_dataset)
+summary(filtered_spotify_lm)
+plot(spotify_lm_dataset$danceability, spotify_lm_dataset$popularity)
+```
+
 
