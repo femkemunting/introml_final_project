@@ -7,7 +7,7 @@ date: "2024-07-19"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
+#test
 ``` {Libraries}
 
 library(tidyverse)
@@ -19,6 +19,7 @@ library(caret)
 library(MASS)
 library(randomForest)
 library(rpart.plot)
+library(math)
 
 ```
 
@@ -30,18 +31,75 @@ spotify = read.csv("spotify_dataset.csv")
 ```
 
 Removing rows with time_signature = 0
-```{r}
-filtered_spotify <- spotify %>% filter(time_signature %in% c(3, 4, 5, 6, 7))
-summary(filtered_spotify)
-```
-Finding the duplicates and comparing them
+```{r filtering}
+filtered_spotify <- 
+  spotify %>% 
+  filter(
+    time_signature %in% c(3, 4, 5, 6, 7))
 
-```{r}
-spotify_unique <- filtered_spotify %>% distinct()
-duplicates_sorted <- spotify %>%
+attach(filtered_spotify)
+
+# No missing values:
+
+sum_isna <- sum(is.na(filtered_spotify))
+sum_isna
+
+
+# Count duplicates:
+
+sum(duplicated(track_id))
+
+# Remove duplicates that have the same track_name, artists and only keep the most popular song
+filtered_spotify <-
+  filtered_spotify %>%
+  group_by(track_name, artists) %>% 
+  filter(popularity == max(popularity))
+
+
+ 
+#Test:  
+filtered_spotify %>% filter(track_name == "Run Rudolph Run")
+
+
+
+# View duplicate track_ids
+duplicates_sorted <- filtered_spotify %>%
   group_by(track_id) %>%
   filter(n() > 1) %>%
   arrange(track_id)
+
+ 
+# Some songs have the same track_id but are in different genres
+
+filtered_spotify <-
+  filtered_spotify %>% 
+  group_by(track_id) %>% 
+  sample_n(1)
+  
+duplicates_sorted_2 <- filtered_spotify %>%
+  group_by(track_id) %>%
+  filter(n() > 1) %>%
+  arrange(track_id)
+  
+
+```
+
+``` {r Plotting}
+plot(danceability ~ tempo)
+plot(danceability, popularity)
+
+non_quant_variables = c("track_id", "artists", "album_name", "track_name", "explicit", "track_genre")
+
+quant_variables <-
+  filtered_spotify %>% 
+  select_if(is.numeric) 
+
+quant_variables <- quant_variables[,  2:16]
+
+cor(quant_variables)
+
+pairs(quant_variables)
+
 ```
 
 Linear model to see relation between variables
