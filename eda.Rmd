@@ -85,9 +85,14 @@ duplicates_sorted_2 <- filtered_spotify %>%
 
 # Convert mode and key to factors
 
-
-  
-key <- factor(key)
+filtered_spotify <-
+  filtered_spotify %>% 
+  mutate(mode = factor(mode),
+         key = factor(key),
+         explicit = factor(explicit, levels = c("True", "False")),
+         track_genre = factor(track_genre)
+         )
+summary(filtered_spotify)
   
   
 ```
@@ -104,7 +109,7 @@ cor(tempo, danceability)
 ```
 
 ```{r PCA}
-pca <- 
+
 
 ```
 
@@ -117,8 +122,10 @@ Notes:
 * Picking the folds is unnecessary if we leave indexOut empty in trainControl()
 ``` {r Popularity Model Set-Up}
 
-model_data <- filtered_spotify[ , c("popularity", "duration_ms", "danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo")]
 
+
+model_data <- filtered_spotify[ , c("popularity", "duration_ms", "danceability", "energy")]
+                                
 train_indices = createDataPartition(model_data$popularity,
                                p = 0.8)
 spotify_train = model_data[train_indices$Resample1,]
@@ -142,9 +149,9 @@ spotifygbmfit_noopt <- train(popularity ~ ., data = spotify_train,
 print(spotifygbmfit_noopt)
 
 
-spotify_gbm_grid <-  expand.grid(interaction.depth = c(1, 2, 3, 5, 10), 
-                        n.trees = c(150, 500, 1000), 
-                        shrinkage = c(0.01, 0.1, 0.2, 0.5),
+spotify_gbm_grid <-  expand.grid(interaction.depth = c(1, 10), 
+                        n.trees = c(150), 
+                        shrinkage = c(0.01, 0.1),
                         n.minobsinnode = 10)
 
 spotify_gbm_fit <- train(popularity ~ .,
@@ -162,6 +169,13 @@ print(spotify_gbm_fit)
 
 ``` {r Random Forest}
 
+rf_fit_basic <- train(popularity ~ ., data = spotify_train, 
+                 method = "rf", 
+                 trControl = fit_control,
+                 # parameter ntree below is passed to 
+                 # the randomForest function call
+                 ntree = 10)
+
 rf_grid = data.frame(mtry = c(3,4,7,10,12))
 rf_fit <- train(popularity ~ ., data = spotify_train, 
                  method = "rf", 
@@ -171,6 +185,6 @@ rf_fit <- train(popularity ~ ., data = spotify_train,
                  tuneGrid = rf_grid,
                  ntree = 50)
 
-ggplot(rf_fit)
+ggplot(rf_fit_basic)
 
 ```
