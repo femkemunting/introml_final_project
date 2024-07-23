@@ -21,6 +21,7 @@ library(randomForest)
 library(rpart.plot)
 library(math)
 
+set.seed(1)
 ```
 
 Our first step is to explore our data set. The Kaggle website for the data set had relatively complete variable descriptions, as well as 
@@ -92,6 +93,42 @@ plot(danceability, popularity)
 
 cor(tempo, danceability)
 
+
+```
+
+Notes:
+* train_indices stores the indices for which rows will be part of the train set and which will be part of the test set. This split is different from the cross-validation splits; those will come from the 80% of training data we set up here. 
+* $Resample1 is created by **createDataPartition()**
+* kcv will be kept at 10 (could change it to 5, but 10 seems fine)
+* I'm trying a boosting model first, following closely from Professor Murray's examples in class
+* Should we use the 
+``` {r Popularity Model Set-Up}
+
+train_indices = createDataPartition(filtered_spotify$popularity,
+                               p = 0.8)
+spotify_train = filtered_spotify[train_indices$Resample1,]
+spotify_test = filtered_spotify[-train_indices$Resample1,]
+
+kcv = 10
+
+cv_folds = createFolds(boston_train$popularity,
+                       k = kcv)
+
+fit_control <- trainControl(
+  method = "cv",
+  indexOut = cv_folds,
+  selectionFunction="oneSE")
+
+gbm_fit <- train(popularity ~ . - track_id - artists - album_name - genre - track_name - explicit,
+                data = spotify_train,
+                method = "gbm",
+                trControl = fit_control,
+                verbose = FALSE)
+
+gbm_grid <-  expand.grid(interaction.depth = c(1, 2, 3, 5, 10), 
+                        n.trees = c(150, 500, 1000), 
+                        shrinkage = c(0.01, 0.1, 0.2),
+                        n.minobsinnode = 10)
 
 
 ```
