@@ -8,7 +8,7 @@ date: "2024-07-19"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 #test
-``` {Libraries}
+``` {r Libraries}
 
 library(tidyverse)
 library(dplyr)
@@ -20,6 +20,7 @@ library(MASS)
 library(randomForest)
 library(rpart.plot)
 library(math)
+library(data_table)
 
 set.seed(1)
 ```
@@ -81,6 +82,12 @@ duplicates_sorted_2 <- filtered_spotify %>%
   group_by(track_id) %>%
   filter(n() > 1) %>%
   arrange(track_id)
+
+# Convert mode and key to factors
+
+
+  
+key <- factor(key)
   
   
 ```
@@ -96,22 +103,30 @@ cor(tempo, danceability)
 
 ```
 
+```{r PCA}
+pca <- 
+
+```
+
+
 Notes:
 * train_indices stores the indices for which rows will be part of the train set and which will be part of the test set. This split is different from the cross-validation splits; those will come from the 80% of training data we set up here. 
 * $Resample1 is created by **createDataPartition()**
 * kcv will be kept at 10 (could change it to 5, but 10 seems fine)
 * I'm trying a boosting model first, following closely from Professor Murray's examples in class
-* Should we use the 
+* Picking the folds is unnecessary if we leave indexOut empty in trainControl()
 ``` {r Popularity Model Set-Up}
 
-train_indices = createDataPartition(filtered_spotify$popularity,
+model_data <- filtered_spotify[ , c("popularity", "duration_ms", "danceability", "energy", "key", "loudness", "mode", "speechiness", "acousticness", "instrumentalness", "liveness", "valence", "tempo")]
+
+train_indices = createDataPartition(model_data$popularity,
                                p = 0.8)
-spotify_train = filtered_spotify[train_indices$Resample1,]
-spotify_test = filtered_spotify[-train_indices$Resample1,]
+spotify_train = model_data[train_indices$Resample1,]
+spotify_test = model_data[-train_indices$Resample1,]
 
 kcv = 10
 
-cv_folds = createFolds(boston_train$popularity,
+cv_folds = createFolds(spotify_train$popularity,
                        k = kcv)
 
 fit_control <- trainControl(
@@ -119,16 +134,43 @@ fit_control <- trainControl(
   indexOut = cv_folds,
   selectionFunction="oneSE")
 
-gbm_fit <- train(popularity ~ . - track_id - artists - album_name - genre - track_name - explicit,
+spotifygbmfit_noopt <- train(popularity ~ ., data = spotify_train, 
+                 method = "gbm", 
+                 trControl = fit_control,
+                 verbose = FALSE)
+
+print(spotifygbmfit_noopt)
+
+
+spotify_gbm_grid <-  expand.grid(interaction.depth = c(1, 2, 3, 5, 10), 
+                        n.trees = c(150, 500, 1000), 
+                        shrinkage = c(0.01, 0.1, 0.2, 0.5),
+                        n.minobsinnode = 10)
+
+spotify_gbm_fit <- train(popularity ~ .,
                 data = spotify_train,
                 method = "gbm",
                 trControl = fit_control,
+                tuneGrid = spotify_gbm_grid,
                 verbose = FALSE)
 
-gbm_grid <-  expand.grid(interaction.depth = c(1, 2, 3, 5, 10), 
-                        n.trees = c(150, 500, 1000), 
-                        shrinkage = c(0.01, 0.1, 0.2),
-                        n.minobsinnode = 10)
+print(spotify_gbm_fit)
 
+
+
+```
+
+``` {r Random Forest}
+
+rf_grid = data.frame(mtry = c(3,4,7,10,12))
+rf_fit <- train(popularity ~ ., data = spotify_train, 
+                 method = "rf", 
+                 # parameter ntree below is passed to 
+                 # the randomForest function call
+                 trControl = fit_control,
+                 tuneGrid = rf_grid,
+                 ntree = 50)
+
+ggplot(rf_fit)
 
 ```
