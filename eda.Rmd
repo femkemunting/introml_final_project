@@ -89,7 +89,10 @@ filtered_spotify <-
          track_genre = factor(track_genre)
          )
 summary(filtered_spotify)
+
+model_data <- subset(filtered_spotify, select = -c(X, track_id, track_name, album_name, artists))
 ```
+
 
 ``` {r Plotting}
 plot(danceability ~ tempo)
