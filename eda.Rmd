@@ -81,7 +81,14 @@ duplicates_sorted_2 <- filtered_spotify %>%
   filter(n() > 1) %>%
   arrange(track_id)
   
-
+filtered_spotify <-
+  filtered_spotify %>% 
+  mutate(mode = factor(mode),
+         key = factor(key),
+         explicit = factor(explicit, levels = c("True", "False")),
+         track_genre = factor(track_genre)
+         )
+summary(filtered_spotify)
 ```
 
 ``` {r Plotting}
