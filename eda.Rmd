@@ -19,7 +19,6 @@ library(caret)
 library(MASS)
 library(randomForest)
 library(rpart.plot)
-library(math)
 
 ```
 
@@ -108,6 +107,72 @@ spotify_lm_dataset <- filtered_spotify %>% select(-X, -track_id, -artists, -albu
 filtered_spotify_lm <- lm(popularity ~ ., data = spotify_lm_dataset)
 summary(filtered_spotify_lm)
 plot(spotify_lm_dataset$danceability, spotify_lm_dataset$popularity)
+```
+
+Cross-validation
+```{r}
+set.seed(18)
+
+# Hold out 20% of the data as a final validation set
+train_ix = createDataPartition(quant_variables$popularity,
+                               p = 0.8)
+
+spotify_train = quant_variables[train_ix$Resample1,]
+spotify_test  = quant_variables[-train_ix$Resample1,]
+
+###########################################################################
+# Setup cross-validation
+###########################################################################
+
+# Define how we're going to estimate OOS error using cross-validation
+
+# Number of folds
+kcv = 10
+
+# I'm manually making the folds here so we can look at them, and so
+# they're the same when we evaluate each method below. If you omit
+# the indexOut argument below caret with make the folds behind the scenes.
+
+cv_folds = createFolds(spotify_train$popularity,
+                               k = kcv)
+
+# This function sets up how we're going to do our training: The method for
+# estimating OOS error (CV) and associated settings (here the folds we created 
+# above). I'm also going to request that our final fit is determined not by
+# the minimum estimated OOS RMSE but using the one standard deviation (aka
+# one standard error) rule instead by specifying selectionFunction="oneSE"
+
+fit_control <- trainControl(
+  method = "cv",
+  indexOut = cv_folds,
+  selectionFunction="oneSE")
+```
+
+Boosting
+```{r}
+###########################################################################
+# Boosting
+###########################################################################
+
+# Boosting, optimizing over default grid for number of trees and depth
+gbmfit <- train( popularity ~ ., data = spotify_train, 
+                 method = "gbm", 
+                 trControl = fit_control,
+                 verbose = FALSE)
+
+# Using a custom grid
+gbm_grid <-  expand.grid(interaction.depth = c(1, 2, 3, 5, 10), 
+                        n.trees = c(150, 500, 1000), 
+                        shrinkage = c(0.01, 0.1, 0.2),
+                        n.minobsinnode = 10)
+
+gbmfit_2 <- train(popularity ~ ., data = spotify_train, 
+                 method = "gbm", 
+                 trControl = fit_control,
+                 tuneGrid = gbm_grid,
+                 verbose = FALSE)
+
+print(gbmfit_2)
 ```
 
 
