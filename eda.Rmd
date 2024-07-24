@@ -8,7 +8,7 @@ date: "2024-07-19"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 #test
-``` {Libraries}
+``` {r Libraries}
 
 library(tidyverse)
 library(dplyr)
@@ -19,6 +19,8 @@ library(caret)
 library(MASS)
 library(randomForest)
 library(rpart.plot)
+library(car)
+library(ggfortify)
 
 ```
 
@@ -35,6 +37,7 @@ filtered_spotify <-
   spotify %>% 
   filter(
     time_signature %in% c(3, 4, 5, 6, 7))
+
 
 attach(filtered_spotify)
 
@@ -80,6 +83,16 @@ duplicates_sorted_2 <- filtered_spotify %>%
   filter(n() > 1) %>%
   arrange(track_id)
   
+filtered_spotify <-
+  filtered_spotify %>% 
+  mutate(mode = factor(mode),
+         key = factor(key),
+         explicit = factor(explicit, levels = c("True", "False")),
+         track_genre = factor(track_genre)
+         )
+summary(filtered_spotify)
+
+model_data <- subset(filtered_spotify, select = -c(X, track_id, track_name, album_name, artists))
 
 ```
 
@@ -93,6 +106,7 @@ quant_variables <-
   filtered_spotify %>% 
   select_if(is.numeric) 
 
+
 quant_variables <- quant_variables[,  2:16]
 
 cor(quant_variables)
@@ -104,7 +118,7 @@ pairs(quant_variables)
 Linear model to see relation between variables
 ```{r}
 spotify_lm_dataset <- filtered_spotify %>% select(-X, -track_id, -artists, -album_name, -track_name, -track_genre, -explicit)
-filtered_spotify_lm <- lm(popularity ~ ., data = spotify_lm_dataset)
+filtered_spotify_lm <- lm(popularity ~ . - X - track_id - artists - album_name - track_name, data = filtered_spotify)
 summary(filtered_spotify_lm)
 plot(spotify_lm_dataset$danceability, spotify_lm_dataset$popularity)
 ```
@@ -173,6 +187,81 @@ gbmfit_2 <- train(popularity ~ ., data = spotify_train,
                  verbose = FALSE)
 
 print(gbmfit_2)
+```
+
+Linear regression
+```{r}
+options(scipen=999)
+lm_model_data <- lm(popularity ~ ., data=model_data)
+summary(lm_model_data)
+
+# Check the reference category of track_genre
+levels(model_data$track_genre)
+# The reference category is german
+
+# Check the reference category of key
+levels(model_data$key)
+# The reference category is 8
+
+# Each variable (except some specific categories) are statistically significant
+# Some categories have a large p-value
+# Perform ANOVA test to compare models with and without categorical variables
+lm_model_data_no_track_genre <- lm(popularity ~ . - track_genre, data=model_data)
+summary(lm_model_data_no_track_genre)
+# Adjusted R-squared is lower after removal, and higher RSE
+anova(lm_model_data_no_track_genre, lm_model_data)
+# F-test p-value is very small for track_genre --> track_genre is statistically significant
+
+lm_model_data_no_key <- lm(popularity ~ . - key, data=model_data)
+summary(lm_model_data_no_key)
+# Adjusted R-squared is lower after removal, and higher RSE
+anova(lm_model_data_no_key, lm_model_data)
+# F-test p-value is very small for key --> key is statistically significant
+
+# If a specific category is not statistically significant -> effect on pop is not distinguishable from reference category
+
+# Backwards step-wise regression
+step(lm_model_data, direction="backward")
+# All initial variables were retained
+
+autoplot(lm_model_data)
+# view residuals vs leverage plot only
+autoplot(lm_model_data, which=5)
+# Outliers at 13795, 55236, 68307 - remove influential outliers
+model_data2= model_data[-13795,]
+model_data3= model_data2[-55236,]
+model_data4 = model_data3[-68307,]
+lm_model_data_adjusted <- lm(popularity ~ ., data=model_data4)
+autoplot(lm_model_data_adjusted, which=5)
+autoplot(lm_model_data_adjusted)
+# linearity assumption satisfied (horizontal line on residuals vs fitted)
+# normality assumption not satisfied (skewed towards the ends)
+# independence assumption is satisfied because songs are independent from each other
+# equal variance/homoscedasticity assumption is satisfied because there is relatively constant vertical thickness on the Residuals vs Fitted graph 
+
+# check GVIF (since there are categorical var)
+vif(lm_model_data_adjusted)
+# no significant multicollinearity
+
+# Final linear regression model used to predict popularity
+summary(lm_model_data_adjusted)
+confint(lm_model_data_adjusted)
+
+# Coefficient Interpretation
+# danceability - holding all other variables constant, popularity will increase by 4.48 for each increase in danceability
+# energy - holding all other variables constant, popularity will decrease by -3.45 for each increase in energy
+# track_genre uses german as it reference category
+  # positive coefficients are expected to have higher popularity than german, negative coefficients are expected to have lower popularity than german
+
+# Results
+# R-squared
+  # R-squared = 0.3738 -> 37.38% of the variation in popularity can be explained by the model
+  # RSE = 15.75 -> for any prediction of carat we make using this model, we will on average be off by 0.02566 carats
+# Statistical significance
+  # model p-value < 2.2e-16 -> significant
+# Practical significance
+  # low r-squared -> not very practical :(
+
 ```
 
 
