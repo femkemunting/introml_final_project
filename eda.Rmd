@@ -32,11 +32,11 @@ library(rpart.plot)
 ```
 
 Our first step is to explore our data set. The Kaggle website for the data set had relatively complete variable descriptions, as well as 
-
 ``` {r EDA Part 1}
 spotify = read.csv("spotify_dataset.csv")
 
 ```
+
 
 Removing rows with time_signature = 0
 ```{r filtering}
@@ -62,10 +62,8 @@ filtered_spotify <-
   filter(popularity == max(popularity))
 
 
- 
 #Test:  
 #filtered_spotify %>% filter(track_name == "Run Rudolph Run")
-
 
 
 # View duplicate track_ids
@@ -85,7 +83,8 @@ duplicates_sorted_2 <- filtered_spotify %>%
   group_by(track_id) %>%
   filter(n() > 1) %>%
   arrange(track_id)
-  
+
+#factor categorical variables
 filtered_spotify <-
   filtered_spotify %>% 
   mutate(mode = factor(mode),
@@ -93,8 +92,6 @@ filtered_spotify <-
          explicit = factor(explicit, levels = c("True", "False")),
          track_genre = factor(ifelse(grepl("pop", track_genre, ignore.case = TRUE), 1, 0)))
 
-
-         
 #finding out how many categories in track genre because 53 is too many
 #summary(filtered_spotify$track_genre)
 #length(unique(filtered_spotify$track_genre))
@@ -120,8 +117,6 @@ quant_variables <- quant_variables[,  2:14]
 ```
 
 
-
-
 ``` {r Popularity model setup}
 
 #creates a new data frame containing only the specified columns 
@@ -139,12 +134,6 @@ spotify_train = model_data_cleaned[train_indices$Resample1,]
 spotify_test = model_data_cleaned[-train_indices$Resample1,]
 
 
-# Check levels of a categorical variable
-table(spotify_train$mode)
-
-
-
-
 #creates folds for k cross validation
 kcv = 10
 cv_folds = createFolds(spotify_train$popularity,
@@ -157,7 +146,6 @@ fit_control <- trainControl(
   selectionFunction="oneSE")
 
 
- 
 #train a single tree model
 tree_model <- train(popularity ~ ., data = spotify_train,
                     method = "rpart",
@@ -173,36 +161,6 @@ if(is(tree_model$finalModel, "rpart")) {
 
 ###errorWarning in nominalTrainWorkflow(x = x, y = y, wts = weights, info = trainInfo,  : There were missing values in resampled performance measures.
 #---This occurs because the factor(track genre) variable has more than 53 categories. https://stackoverflow.com/questions/26828901/warning-message-missing-values-in-resampled-performance-measures-in-caret-tra
-
-```
-
-
-set.seed(1)
-# Hold out 20% of the data as a final validation set
-train_indices = createDataPartition(model_data$popularity,
-                               p = 0.1)
-
-train_indices <- sample(1:nrow(filtered_spotify), nrow(filtered_spotify) / 2)
-training_set <- filtered_spotify[train_indices, ]
-
-kcv = 10
-
-cv_folds = createFolds(spot_train$popularity,
-                               k = kcv)
-
-fit_control <- trainControl(
-  method = "cv",
-  indexOut = cv_folds,
-  selectionFunction="oneSE")
-
-
-tree_model <- rpart(formula = popularity ~ danceability + energy + loudness,
-                    data = filtered_spotify,
-                    subset = train_indices)
-
-
-
-rpart.plot(tree_model, type = 3, extra = 101, under = TRUE, fallen.leaves = TRUE)
 
 ```
 
