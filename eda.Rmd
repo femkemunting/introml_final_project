@@ -228,24 +228,22 @@ autoplot(lm_model_data)
 # view residuals vs leverage plot only
 autoplot(lm_model_data, which=5)
 # Outliers at 13795, 55236, 68307 - remove influential outliers
-model_data2= model_data[-13795,]
-model_data3= model_data2[-55236,]
-model_data4 = model_data3[-68307,]
-lm_model_data_adjusted <- lm(popularity ~ ., data=model_data4)
-autoplot(lm_model_data_adjusted, which=5)
-autoplot(lm_model_data_adjusted)
+model_data_cleaned <- model_data[-c(13795, 55236, 68307), ]
+lm_model_data_cleaned <- lm(popularity ~ ., data=model_data_cleaned)
+autoplot(lm_model_data_cleaned, which=5)
+autoplot(lm_model_data_cleaned)
 # linearity assumption satisfied (horizontal line on residuals vs fitted)
 # normality assumption not satisfied (skewed towards the ends)
 # independence assumption is satisfied because songs are independent from each other
 # equal variance/homoscedasticity assumption is satisfied because there is relatively constant vertical thickness on the Residuals vs Fitted graph 
 
 # check GVIF (since there are categorical var)
-vif(lm_model_data_adjusted)
+vif(lm_model_data_cleaned)
 # no significant multicollinearity
 
 # Final linear regression model used to predict popularity
-summary(lm_model_data_adjusted)
-confint(lm_model_data_adjusted)
+summary(lm_model_data_cleaned)
+confint(lm_model_data_cleaned)
 
 # Coefficient Interpretation
 # danceability - holding all other variables constant, popularity will increase by 4.48 for each increase in danceability
@@ -261,6 +259,14 @@ confint(lm_model_data_adjusted)
   # model p-value < 2.2e-16 -> significant
 # Practical significance
   # low r-squared -> not very practical :(
+
+# Sum of Squares
+anova(lm_model_data_cleaned)
+
+# Prediction
+predict(lm_model_data_cleaned, newdata = list(cut = "Premium", color = "D",
+                                  clarity = "IF", depth = mean(diamonds4$depth),
+                                  table = mean(diamonds4$table), price = mean(diamonds4$price), x = mean(diamonds4$x), y = mean(diamonds4$y)), interval="prediction")
 
 ```
 
