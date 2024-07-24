@@ -42,10 +42,9 @@ Removing rows with time_signature = 0
 ```{r filtering}
 filtered_spotify <- 
   spotify %>% 
-  filter(
-    time_signature %in% c(3, 4, 5, 6, 7))
+  filter(time_signature %in% c(3, 4, 5, 6, 7))
 
-attach(filtered_spotify)
+#attach(filtered_spotify)
 
 # No missing values:
 sum_isna <- sum(is.na(filtered_spotify))
@@ -54,6 +53,7 @@ sum_isna
 
 # Count duplicates:
 sum(duplicated(track_id))
+
 
 # Remove duplicates that have the same track_name, artists and only keep the most popular song
 filtered_spotify <-
@@ -91,11 +91,14 @@ filtered_spotify <-
   mutate(mode = factor(mode),
          key = factor(key),
          explicit = factor(explicit, levels = c("True", "False")),
-         track_genre = factor(track_genre)
-         )
-#summary(filtered_spotify)
+         track_genre = factor(ifelse(grepl("pop", track_genre, ignore.case = TRUE), 1, 0)))
 
-model_data <- subset(filtered_spotify, select = -c(X, track_id, track_name, album_name, artists))
+
+         
+#finding out how many categories in track genre because 53 is too many
+#summary(filtered_spotify$track_genre)
+#length(unique(filtered_spotify$track_genre))
+
 ```
 
 
@@ -122,15 +125,25 @@ quant_variables <- quant_variables[,  2:14]
 ``` {r Popularity model setup}
 
 #creates a new data frame containing only the specified columns 
-model_data <- filtered_spotify[ , c("popularity", "duration_ms", "danceability", "energy")]
+#model_data <- filtered_spotify[ , c("popularity", "duration_ms", "danceability", "energy")]
+model_data <- subset(filtered_spotify, select = -c(X, track_id, track_name, album_name, artists))
+model_data_cleaned <- model_data[-c(13795, 55236, 68307), ]
+
 
 #splits the data based on the popularity column to create training indices. In this case 80% of the data is reserved for training
-train_indices = createDataPartition(model_data$popularity,
+train_indices = createDataPartition(model_data_cleaned$popularity,
                                p = 0.8)
 
 #create training and testing data
-spotify_train = model_data[train_indices$Resample1,]
-spotify_test = model_data[-train_indices$Resample1,]
+spotify_train = model_data_cleaned[train_indices$Resample1,]
+spotify_test = model_data_cleaned[-train_indices$Resample1,]
+
+
+# Check levels of a categorical variable
+table(spotify_train$mode)
+
+
+
 
 #creates folds for k cross validation
 kcv = 10
@@ -144,12 +157,11 @@ fit_control <- trainControl(
   selectionFunction="oneSE")
 
 
+ 
 #train a single tree model
 tree_model <- train(popularity ~ ., data = spotify_train,
                     method = "rpart",
                     trControl = fit_control)
-
-
 
 
 #plot the tree model
@@ -158,6 +170,9 @@ if(is(tree_model$finalModel, "rpart")) {
 } else {
   print("The trained model is not a single tree model.")
 }
+
+###errorWarning in nominalTrainWorkflow(x = x, y = y, wts = weights, info = trainInfo,  : There were missing values in resampled performance measures.
+#---This occurs because the factor(track genre) variable has more than 53 categories. https://stackoverflow.com/questions/26828901/warning-message-missing-values-in-resampled-performance-measures-in-caret-tra
 
 ```
 
