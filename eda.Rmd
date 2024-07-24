@@ -7,8 +7,10 @@ date: "2024-07-19"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
 #test
-``` {r Libraries}
+
+```{r Libraries}
 
 library(tidyverse)
 library(dplyr)
@@ -25,14 +27,15 @@ library(data_table)
 set.seed(1)
 ```
 
-Our first step is to explore our data set. The Kaggle website for the data set had relatively complete variable descriptions, as well as 
+Our first step is to explore our data set. The Kaggle website for the data set had relatively complete variable descriptions, as well as
 
-``` {r EDA Part 1}
+```{r EDA Part 1}
 spotify = read.csv("spotify_dataset.csv")
 
 ```
 
 Removing rows with time_signature = 0
+
 ```{r filtering}
 filtered_spotify <- 
   spotify %>% 
@@ -94,10 +97,11 @@ filtered_spotify <-
          )
 summary(filtered_spotify)
   
+model_data <- subset(filtered_spotify, select = -c(X, track_id, track_name, album_name, artists))
   
 ```
 
-``` {r Plotting}
+```{r Plotting}
 plot(danceability ~ tempo)
 plot(danceability, popularity)
 
@@ -113,23 +117,15 @@ cor(tempo, danceability)
 
 ```
 
+Notes: \* train_indices stores the indices for which rows will be part of the train set and which will be part of the test set. This split is different from the cross-validation splits; those will come from the 80% of training data we set up here. \* \$Resample1 is created by **createDataPartition()** \* kcv will be kept at 10 (could change it to 5, but 10 seems fine) \* I'm trying a boosting model first, following closely from Professor Murray's examples in class \* Picking the folds is unnecessary if we leave indexOut empty in trainControl()
 
-Notes:
-* train_indices stores the indices for which rows will be part of the train set and which will be part of the test set. This split is different from the cross-validation splits; those will come from the 80% of training data we set up here. 
-* $Resample1 is created by **createDataPartition()**
-* kcv will be kept at 10 (could change it to 5, but 10 seems fine)
-* I'm trying a boosting model first, following closely from Professor Murray's examples in class
-* Picking the folds is unnecessary if we leave indexOut empty in trainControl()
-``` {r Popularity Model Set-Up}
+```{r Popularity Model Set-Up}
 
-
-
-model_data <- filtered_spotify[ , c("popularity", "duration_ms", "danceability", "energy")]
                                 
-train_indices = createDataPartition(model_data$popularity,
+train_indices <- createDataPartition(model_data$popularity,
                                p = 0.8)
-spotify_train = model_data[train_indices$Resample1,]
-spotify_test = model_data[-train_indices$Resample1,]
+spotify_train <- model_data[train_indices$Resample1,]
+spotify_test <- model_data[-train_indices$Resample1,]
 
 kcv = 10
 
@@ -149,8 +145,8 @@ spotifygbmfit_noopt <- train(popularity ~ ., data = spotify_train,
 print(spotifygbmfit_noopt)
 
 
-spotify_gbm_grid <-  expand.grid(interaction.depth = c(1, 10), 
-                        n.trees = c(150), 
+spotify_gbm_grid <-  expand.grid(interaction.depth = c(1, 3, 5, 10), 
+                        n.trees = c(150, 500, 1000), 
                         shrinkage = c(0.01, 0.1),
                         n.minobsinnode = 10)
 
@@ -167,9 +163,9 @@ print(spotify_gbm_fit)
 
 ```
 
-``` {r Random Forest}
+```{r Random Forest}
 
-rf_fit_basic <- train(popularity ~ ., data = spotify_train, 
+rf_fit_basic <- train(popularity ~ ., data = baby_data, 
                  method = "rf", 
                  trControl = fit_control,
                  # parameter ntree below is passed to 
