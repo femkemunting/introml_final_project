@@ -44,7 +44,7 @@ filtered_spotify <-
   spotify %>% 
   filter(time_signature %in% c(3, 4, 5, 6, 7))
 
-#attach(filtered_spotify)
+attach(filtered_spotify)
 
 # No missing values:
 sum_isna <- sum(is.na(filtered_spotify))
@@ -99,7 +99,7 @@ filtered_spotify <-
 ```
 
 
-``` {r Plotting}
+``` {r Plotting and variable definitions}
 #plot(danceability ~ tempo)
 #plot(danceability, popularity)
 
@@ -164,3 +164,77 @@ if(is(tree_model$finalModel, "rpart")) {
 
 ```
 
+
+``` {r caret_example.R}
+###########################################################################
+# Single tree
+###########################################################################
+
+#creates a dataframe with a series of values for complexity parameter (CP). 500 spaced points between .00001 and .03
+#Outcome: This results in a wide range of cp values, allowing the model to explore various levels of tree complexity from very detailed (low cp values, allowing more splits) to more generalized models (high cp values, fewer splits).
+rpart_grid = data.frame(cp = c(0, exp(seq(log(0.00001), log(0.03), length.out=500))))
+
+#popularity is response and all other variables are predictors
+single_tree_fit <- train( popularity ~ danceability + energy + loudness, data = spotify_train, 
+                          method = "rpart", 
+                          tuneGrid = rpart_grid,
+                          trControl = fit_control)
+
+#^^^^^^^^^^This block of code is used to perform hyperparameter tuning on the cp parameter of an rpart model. By doing so, it aims to find the optimal balance between model complexity and generalization capability, thus improving the model's predictive accuracy or minimizing overfitting, depending on the cross-validation results and the metric chosen for optimization. The outcome, single_tree_fit, will be an object containing the best-fitting model along with details about its performance across different cp values, which can be further analyzed or used for predictions.
+
+
+#took almost 2 hours for all the variables
+#danceability + energy + loudness variables only takes like 30 min
+
+```
+
+
+
+```{r caret_example.R}
+
+# Extract the final fit
+single_tree_fit$finalModel #gets the best tree model from the tuning process
+rpart.plot(single_tree_fit$finalModel)
+```
+
+
+
+```{r caret_example.R}
+# For this very special case, it's faster/more efficient to just use rpart
+set.seed(1)
+#popularity is response and all other variables are predictors
+bigtree = rpart(popularity ~ danceability + energy + loudness, data = spotify_train,
+                control = rpart.control(cp=0.0009, minsplit=5))
+plotcp(bigtree) #plots a graph of the root mean square error (RMSE) against the complexity parameter for each potential tree size considered 
+
+printcp(bigtree)
+
+best_cp_ix = which.min(bigtree$cptable[,4]) # "Best"
+bigtree$cptable[best_cp_ix,4]
+```
+
+
+
+
+```{From caret_example.R}
+# one sd rule
+tol = bigtree$cptable[best_cp_ix,4] + bigtree$cptable[best_cp_ix,5]
+bigtree$cptable[bigtree$cptable[,4]<tol,][1,]
+best_cp_onesd = bigtree$cptable[bigtree$cptable[,4]<tol,][1,1]
+cvtree = prune(bigtree, cp=best_cp_onesd)
+
+
+# Different looking trees -- mostly due to different CV folds -- 
+# but very similar predictions!
+plot(predict(cvtree), predict(single_tree_fit$finalModel))
+abline(0,1)
+# Jittering the predictions a little so they aren't on top of each other
+plot(predict(cvtree)+runif(nrow(spotify_train), -0.5,  0.5), 
+     predict(single_tree_fit$finalModel)+runif(nrow(spotify_train), -0.5,  0.5))
+abline(0,1)
+
+cor(predict(cvtree), predict(single_tree_fit$finalModel))
+
+#########DO RMSE AND SHORTEN DEPTH
+
+```
