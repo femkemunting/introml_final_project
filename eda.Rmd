@@ -268,6 +268,10 @@ predict(lm_model_data_cleaned, newdata = list(cut = "Premium", color = "D",
                                   clarity = "IF", depth = mean(diamonds4$depth),
                                   table = mean(diamonds4$table), price = mean(diamonds4$price), x = mean(diamonds4$x), y = mean(diamonds4$y)), interval="prediction")
 
+
+predict(lm_model_data_cleaned, newdata = list(duration_ms = mean(model_data_cleaned$duration_ms), explicit = "True", danceability = mean(model_data_cleaned$danceability), energy = mean(model_data_cleaned$energy), key = "4", loudness = mean(model_data_cleaned$loudness), mode = "1", speechiness = mean(model_data_cleaned$speechiness), acousticness = mean(model_data_cleaned$acousticness), instrumentalness = mean(model_data_cleaned$instrumentalness), liveness = mean(model_data_cleaned$liveness), valence = mean(model_data_cleaned$valence), tempo = mean(model_data_cleaned$tempo), time_signature = 4, track_genre = "k-pop"), interval="prediction")
+# fit is 60.86495,
+
 ```
 
 
