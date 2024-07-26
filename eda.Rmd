@@ -378,6 +378,78 @@ print(best_model_coef)
 # Check the entire model
 optimized_model <- lm(popularity ~ explicit + danceability + speechiness + instrumentalness + valence, data = model_data_cleaned2_sample)
 summary(optimized_model)
+
+# Plotting
+rmse_df <- data.frame(
+  Model = 1:num_predictors,
+  RMSE = rmse_values
+)
+
+# Plot the RMSE values
+ggplot(rmse_df, aes(x = Model, y = RMSE)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "RMSE vs. Number of Predictors",
+       x = "Number of Predictors",
+       y = "RMSE") +
+  theme_minimal()
+
+
+```
+Subset Regression 3
+```{r}
+library(glmnet)
+library(ggplot2)
+
+# Prepare the data
+trainX <- model.matrix(popularity ~ ., spotify_train)[, -1] # Predictor matrix for training
+trainY <- spotify_train$popularity # Response vector for training
+testX <- model.matrix(popularity ~ ., spotify_test)[, -1] # Predictor matrix for testing
+testY <- spotify_test$popularity # Response vector for testing
+
+# Fit a Lasso regression model
+lasso_fit <- cv.glmnet(trainX, trainY, alpha = 1) # alpha = 1 for Lasso
+lasso_pred <- predict(lasso_fit, s = "lambda.min", newx = testX)
+lasso_rmse <- sqrt(mean((testY - lasso_pred)^2))
+lasso_coef <- coef(lasso_fit, s = "lambda.min")
+print(lasso_coef)
+# Lasso sets some variable coefficients to 0 (effectively removing them)
+
+# Fit a Ridge regression model
+ridge_fit <- cv.glmnet(trainX, trainY, alpha = 0) # alpha = 0 for Ridge
+ridge_pred <- predict(ridge_fit, s = "lambda.min", newx = testX)
+ridge_rmse <- sqrt(mean((testY - ridge_pred)^2))
+ridge_coef <- coef(ridge_fit, s = "lambda.min")
+print(ridge_coef)
+# Ridge shrinks the coefficients but never removes the variables (zero)
+
+# Print the RMSE for both models
+print(paste("Lasso RMSE:", lasso_rmse))
+print(paste("Ridge RMSE:", ridge_rmse))
+
+
+# Lasso produces slightly higher rmse
+# Lasso tends to perform better when a small number of predictors have a strong effect on Y
+
+
+# Create a data frame for plotting
+rmse_methods_df <- data.frame(
+  Method = c("Subset Selection", "Lasso", "Ridge"),
+  RMSE = c(best_model_rmse, lasso_rmse, ridge_rmse)
+)
+
+# Plot the RMSE values for different methods with a zoomed-in view
+ggplot(rmse_methods_df, aes(x = Method, y = RMSE)) +
+  geom_bar(stat = "identity") +
+  labs(title = "RMSE Comparison of Different Methods",
+       x = "Method",
+       y = "RMSE") +
+  theme_minimal() +
+  scale_y_continuous(limits = c(0, max(rmse_methods_df$RMSE) * 1.1), labels = scales::number_format(accuracy = 0.01)) +
+  geom_text(aes(label = sprintf("%.2f", RMSE)), vjust = -0.5, size = 3.5) +
+  coord_cartesian(ylim = c(min(rmse_methods_df$RMSE) - 0.1, max(rmse_methods_df$RMSE) + 0.1)) # zooms in on y-
+
+
 ```
 
 
