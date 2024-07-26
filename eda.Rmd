@@ -273,5 +273,113 @@ predict(lm_model_data_cleaned, newdata = list(duration_ms = mean(model_data_clea
 # fit is 60.86495,
 
 ```
+Subset Regression 1
+```{r}
+# Show base model RMSE
+
+# https://www.science.smith.edu/~jcrouser/SDS293/labs/lab8-r.html
+
+model_data_cleaned2 <- model_data_cleaned
+model_data_cleaned2_sample <- sample_n(model_data_cleaned2, 10000)
+
+# removing track_genre
+model_data_cleaned2_sample <- model_data_cleaned2_sample %>% select(-track_genre)
+
+library(ISLR)
+library(dplyr)
+library(leaps)
+
+# Check for missing values
+model_data_cleaned2_sample %>%
+  select(.) %>%
+  is.na() %>%
+  sum()
+
+# The regsubsets() function (part of the leaps library) performs best subset selection by identifying the best model that contains a given number of predictors, where best is quantified using RSS. The syntax is the same as for lm(). The summary() command outputs the best set of variables for each model size.
+
+regfit_full = regsubsets(popularity ~ . , data = model_data_cleaned2_sample)
+summary(regfit_full)
+
+
+```
+
+Subset Regression 2
+```{r}
+library(ISLR)
+library(dplyr)
+library(leaps)
+library(caret)
+
+# Split the data into training and test sets
+set.seed(18)
+
+# Hold out 20% of the data as a final validation set
+train_ix = createDataPartition(model_data_cleaned2_sample$popularity,
+                               p = 0.8)
+
+spotify_train = model_data_cleaned2_sample[train_ix$Resample1,]
+spotify_test  = model_data_cleaned2_sample[-train_ix$Resample1,]
+
+# Fit regsubsets model on the training data
+regfit <- regsubsets(popularity ~ ., data = spotify_train, nvmax = 30, really.big = TRUE) # nvmax adjusts number of variables # really.big = true allows for a big search
+
+# Create a function to calculate RMSE
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2)) }
+
+# Evaluate models on the test data
+# testX views predictors
+# -1 excludes the intercept column
+testX <- model.matrix(popularity ~ ., spotify_test) # predictor matrix
+# testY compares response variable actual values vs predicted
+testY <- spotify_test$popularity # response vector
+
+# Get the actual number of predictors used in the regfit object
+num_predictors <- length(summary(regfit)$outmat[1,])
+
+# Create a vector to store RMSE values for each model
+# rep() repeats vector x 
+# 10 is used as the value because we specified nvmax = 10 earlier
+rmse_values <- rep(NA, num_predictors) 
+
+# Loop over each model size from 1 to 10 predictors
+for (i in 1:num_predictors) {
+  # Get the coefficients of the i-th model from the regsubsets result
+  # 'id = i' specifies which model to extract, starting from 1 until id = nvmax
+  coef_i <- coef(regfit, id = i)
+  
+  # Predict the response variable using the i-th model coefficients
+  # We select only the columns corresponding to the predictors included in the i-th model
+    # '%*%' is the matrix multiplication operator in R, calculates predicted values.
+  pred_i <- testX[, names(coef_i)] %*% coef_i
+  
+  # Calculate the RMSE for the i-th model's predictions on the test data
+  rmse_values[i] <- rmse(testY, pred_i)
+  
+  # Print (concatenate) the details of the i-nth model
+  cat("\nModel with", i, "predictors\n")
+  cat("Predictors:", names(coef_i), "\n")
+  cat("RMSE:", rmse_values[i], "\n")
+}
+
+# Identify the model with the lowest RMSE
+best_model_index <- which.min(rmse_values)
+best_model_rmse <- rmse_values[best_model_index]
+
+# Output the best model index and its RMSE
+print(paste("Best model index:", best_model_index))
+print(paste("Best model RMSE:", best_model_rmse))
+
+# Get the coefficients of the best model
+best_model_coef <- coef(regfit, id = best_model_index)
+print("Coefficients of the best model:")
+print(best_model_coef)
+
+# Check the entire model
+optimized_model <- lm(popularity ~ explicit + danceability + speechiness + instrumentalness + valence, data = model_data_cleaned2_sample)
+summary(optimized_model)
+```
+
+
 
 
