@@ -339,10 +339,9 @@ num_predictors <- length(summary(regfit)$outmat[1,])
 
 # Create a vector to store RMSE values for each model
 # rep() repeats vector x 
-# 10 is used as the value because we specified nvmax = 10 earlier
 rmse_values <- rep(NA, num_predictors) 
 
-# Loop over each model size from 1 to 10 predictors
+# Loop over each model size from 1 to number of predictors
 for (i in 1:num_predictors) {
   # Get the coefficients of the i-th model from the regsubsets result
   # 'id = i' specifies which model to extract, starting from 1 until id = nvmax
