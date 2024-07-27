@@ -197,7 +197,6 @@ testY <- regular_test$popularity # response vector
 # Get the actual number of predictors used in the regfit object
 num_predictors <- length(summary(regfit)$outmat[1,])
 
-# Citation: asked ChatGPT how to store values
 # Create a vector to store RMSE values for each model
 # rep() repeats vector x 
 rmse_values <- rep(NA, num_predictors) 
@@ -281,10 +280,10 @@ print(paste("Lasso RMSE:", lasso_rmse))
 print(paste("Ridge RMSE:", ridge_rmse))
 
 
-# Lasso produces slightly better rmse
+# Lasso produces slightly higher rmse
 # Lasso tends to perform better when a small number of predictors have a strong effect on Y
 
-# Citation: asked ChatGPT how to plot and scale rmse values by method
+
 # Create a data frame for plotting
 rmse_methods_df <- data.frame(
   Method = c("Subset Selection", "Lasso", "Ridge"),
@@ -298,9 +297,8 @@ ggplot(rmse_methods_df, aes(x = Method, y = RMSE)) +
        x = "Method",
        y = "RMSE") +
   theme_minimal() +
-  scale_y_continuous(limits = c(0, max(rmse_methods_df$RMSE) * 1.1), labels = scales::number_format(accuracy = 0.001)) +
-  geom_text(aes(label = sprintf("%.3f", RMSE)), vjust = -0.5, size = 3.5) +
-  coord_cartesian(ylim = c(min(rmse_methods_df$RMSE) - 0.1, max(rmse_methods_df$RMSE) + 0.1)) # zooms in on y-axis
-
+  scale_y_continuous(limits = c(0, max(rmse_methods_df$RMSE) * 1.1), labels = scales::number_format(accuracy = 0.01)) +
+  geom_text(aes(label = sprintf("%.2f", RMSE)), vjust = -0.5, size = 3.5) +
+  coord_cartesian(ylim = c(min(rmse_methods_df$RMSE) - 0.1, max(rmse_methods_df$RMSE) + 0.1)) # zooms in on y-
 ```
 
