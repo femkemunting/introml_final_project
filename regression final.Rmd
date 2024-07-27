@@ -1,0 +1,211 @@
+---
+title: "Linear Regression Methods"
+output: html_document
+date: "2024-07-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Libraries}
+
+library(tidyverse)
+library(dplyr)
+library(gbm)
+library(tree)
+library(rpart)
+library(caret)
+library(MASS)
+library(randomForest)
+library(rpart.plot)
+library(ISLR)
+library(leaps)
+library(glmnet)
+library(ggplot2)
+
+```
+
+Subset Regression (reg)
+```{r}
+
+# Check for missing values
+sum(is.na(regular_data))
+
+# Fit regsubsets model on the training data
+regfit <- regsubsets(popularity ~ ., data = regular_train, nvmax = 30, really.big = TRUE) # nvmax adjusts number of variables # really.big = true allows for a big search
+
+# Create a function to calculate RMSE
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2)) }
+
+# Evaluate models on the training data (In-Sample)
+trainX <- model.matrix(popularity ~ ., regular_train) # predictor matrix for training data
+trainY <- regular_train$popularity # response vector for training data
+
+# Evaluate models on the test data (Out-of-Sample)
+# testX views predictors
+testX <- model.matrix(popularity ~ ., regular_test) # predictor matrix for test data
+# testY compares response variable actual values vs predicted
+testY <- regular_test$popularity # response vector
+
+# Citation: asked ChatGPT how to dynamically adjust number of predictors
+# Get the actual number of predictors used in the regfit object
+num_predictors <- length(summary(regfit)$outmat[1,])
+
+# Citation: asked ChatGPT how to store values
+# Create vectors to store RMSE values for each model
+# rep() repeats vector x 
+rmse_train_values <- rep(NA, num_predictors)
+rmse_test_values <- rep(NA, num_predictors)
+
+# Loop over each model size from 1 to number of predictors
+for (i in 1:num_predictors) {
+  # Get the coefficients of the i-th model from the regsubsets result
+  # 'id = i' specifies which model to extract, starting from 1 until id = nvmax
+  coef_i <- coef(regfit, id = i)
+  
+  # In-Sample Prediction
+  pred_train_i <- trainX[, names(coef_i)] %*% coef_i
+  rmse_train_values[i] <- rmse(trainY, pred_train_i)
+
+  # Out-of-Sample Prediction
+  # Predict the response variable using the i-th model coefficients
+  # We select only the columns corresponding to the predictors included in the i-th model
+    # '%*%' is the matrix multiplication operator in R, calculates predicted values.
+  pred_test_i <- testX[, names(coef_i)] %*% coef_i
+  # Calculate the RMSE for the i-th model's predictions on the test data
+  rmse_test_values[i] <- rmse(testY, pred_test_i)
+  
+  # Print (concatenate) the details of the i-nth model
+  cat("\nModel with", i, "predictors\n")
+  cat("Predictors:", names(coef_i), "\n")
+  cat("In-Sample RMSE:", rmse_train_values[i], "\n")
+  cat("Out-of-Sample RMSE:", rmse_test_values[i], "\n")
+}
+
+# Identify the model with the lowest RMSE (In-Sample)
+best_in_sample_index <- which.min(rmse_train_values)
+best_in_sample_rmse <- rmse_train_values[best_in_sample_index]
+
+# Identify the model with the lowest RMSE (Out-of-Sample)
+best_out_sample_index <- which.min(rmse_test_values)
+best_out_sample_rmse <- rmse_test_values[best_out_sample_index]
+
+# Output the best model indices and their RMSEs
+print(paste("Best in-sample model index:", best_in_sample_index))
+print(paste("Best in-sample RMSE:", best_in_sample_rmse))
+
+print(paste("Best out-of-sample model index:", best_out_sample_index))
+print(paste("Best out-of-sample RMSE:", best_out_sample_rmse))
+
+# Get the coefficients of the best in-sample model
+best_in_sample_coef <- coef(regfit, id = best_in_sample_index)
+print("Coefficients of the best in-sample model:")
+print(best_in_sample_coef)
+
+# Get the coefficients of the best out-of-sample model
+best_out_sample_coef <- coef(regfit, id = best_out_sample_index)
+print("Coefficients of the best out-of-sample model:")
+print(best_out_sample_coef)
+
+
+# Plotting
+rmse_df <- data.frame(
+  Model = 1:num_predictors,
+  InSampleRMSE = rmse_train_values,
+  OutSampleRMSE = rmse_test_values
+)
+
+
+# Plot the RMSE values
+ggplot(rmse_df, aes(x = Model)) +
+  geom_line(aes(y = InSampleRMSE, color = "In-Sample RMSE")) +
+  geom_line(aes(y = OutSampleRMSE, color = "Out-of-Sample RMSE")) +
+  geom_point(aes(y = InSampleRMSE, color = "In-Sample RMSE")) +
+  geom_point(aes(y = OutSampleRMSE, color = "Out-of-Sample RMSE")) +
+  labs(title = "RMSE vs. Number of Predictors",
+       x = "Number of Predictors",
+       y = "RMSE",
+       color = "RMSE Type") +
+  theme_minimal()
+
+
+```
+Shrinkage lasso and ridge (reg)
+```{r}
+# Prepare the data
+trainX <- model.matrix(popularity ~ ., regular_train)[, -1] # Predictor matrix for training
+trainY <- regular_train$popularity # Response vector for training
+testX <- model.matrix(popularity ~ ., regular_test)[, -1] # Predictor matrix for testing
+testY <- regular_test$popularity # Response vector for testing
+
+# Create a function to calculate RMSE
+rmse <- function(actual, predicted) {
+  sqrt(mean((actual - predicted)^2))
+}
+
+# Citation: asked ChatGPT how to determine the minimum RSE with lasso and ridge
+# Fit a Lasso regression model
+# Lasso sets some variable coefficients to 0 (effectively removing them)
+lasso_fit <- cv.glmnet(trainX, trainY, alpha = 1) # alpha = 1 for Lasso
+
+# Predict and calculate in-sample RMSE for Lasso
+lasso_in_sample_pred <- predict(lasso_fit, s = "lambda.min", newx = trainX)
+lasso_in_sample_rmse <- rmse(trainY, lasso_in_sample_pred)
+
+# Predict and calculate out-of-sample RMSE for Lasso
+lasso_out_sample_pred <- predict(lasso_fit, s = "lambda.min", newx = testX)
+lasso_out_sample_rmse <- rmse(testY, lasso_out_sample_pred)
+
+lasso_coef <- coef(lasso_fit, s = "lambda.min")
+print(lasso_coef)
+
+# Fit a Ridge regression model
+# Ridge shrinks the coefficients but never removes the variables (zero)
+ridge_fit <- cv.glmnet(trainX, trainY, alpha = 0) # alpha = 0 for Ridge
+
+# Predict and calculate in-sample RMSE for Ridge
+ridge_in_sample_pred <- predict(ridge_fit, s = "lambda.min", newx = trainX)
+ridge_in_sample_rmse <- rmse(trainY, ridge_in_sample_pred)
+
+# Predict and calculate out-of-sample RMSE for Ridge
+ridge_out_sample_pred <- predict(ridge_fit, s = "lambda.min", newx = testX)
+ridge_out_sample_rmse <- rmse(testY, ridge_out_sample_pred)
+
+ridge_coef <- coef(ridge_fit, s = "lambda.min")
+print(ridge_coef)
+
+# Print the RMSE for both models
+print(paste("Lasso In-Sample RMSE:", lasso_in_sample_rmse))
+print(paste("Lasso Out-of-Sample RMSE:", lasso_out_sample_rmse))
+print(paste("Ridge In-Sample RMSE:", ridge_in_sample_rmse))
+print(paste("Ridge Out-of-Sample RMSE:", ridge_out_sample_rmse))
+
+# Lasso produces slightly better rmse
+# Lasso tends to perform better when a small number of predictors have a strong effect on Y
+
+# Citation: asked ChatGPT how to plot and scale rmse values by method
+# Create a data frame for plotting
+rmse_methods_df <- data.frame(
+  Method = c("Subset Selection In-Sample", "Subset Selection Out-of-Sample", 
+             "Lasso In-Sample", "Lasso Out-of-Sample", 
+             "Ridge In-Sample", "Ridge Out-of-Sample"),
+  RMSE = c(best_in_sample_rmse, best_out_sample_rmse, 
+           lasso_in_sample_rmse, lasso_out_sample_rmse, 
+           ridge_in_sample_rmse, ridge_out_sample_rmse)
+)
+
+# Plot the RMSE values for different methods with a zoomed-in view
+ggplot(rmse_methods_df, aes(x = Method, y = RMSE)) +
+  geom_bar(stat = "identity") +
+  labs(title = "RMSE Comparison of Different Methods",
+       x = "Method",
+       y = "RMSE") +
+  theme_minimal() +
+  scale_y_continuous(limits = c(0, max(rmse_methods_df$RMSE) * 1.1), labels = scales::number_format(accuracy = 0.001)) +
+  geom_text(aes(label = sprintf("%.3f", RMSE)), vjust = -0.5, size = 3.5) +
+  coord_cartesian(ylim = c(min(rmse_methods_df$RMSE) - 0.1, max(rmse_methods_df$RMSE) + 0.1)) + # zooms in on y-axis
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```

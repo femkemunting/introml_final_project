@@ -1,0 +1,244 @@
+---
+title: "clean_data_withpca"
+output: html_document
+date: "2024-07-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Libraries}
+
+library(tidyverse)
+library(dplyr)
+library(gbm)
+library(tree)
+library(rpart)
+library(caret)
+library(MASS)
+library(randomForest)
+library(rpart.plot)
+
+set.seed(1)
+```
+
+Our first step is to explore our data set. The Kaggle website for the data set had relatively complete variable descriptions, as well as
+
+```{r EDA Part 1}
+spotify = read.csv("spotify_dataset.csv")
+
+```
+
+Removing rows with time_signature = 0
+
+```{r filtering}
+filtered_spotify <- 
+  spotify %>% 
+  filter(
+    time_signature %in% c(3, 4, 5, 6, 7))
+
+attach(filtered_spotify)
+
+# No missing values:
+
+sum_isna <- sum(is.na(filtered_spotify))
+#sum_isna
+
+
+# Count duplicates:
+
+#sum(duplicated(track_id))
+
+# Remove duplicates that have the same track_name, artists and only keep the most popular song
+filtered_spotify <-
+  filtered_spotify %>%
+  group_by(track_name, artists) %>% 
+  filter(popularity == max(popularity))
+
+
+ 
+#Test:  
+filtered_spotify %>% filter(track_name == "Run Rudolph Run")
+
+
+
+# View duplicate track_ids
+duplicates_sorted <- filtered_spotify %>%
+  group_by(track_id) %>%
+  filter(n() > 1) %>%
+  arrange(track_id)
+
+ 
+# Some songs have the same track_id but are in different genres
+
+filtered_spotify <-
+  filtered_spotify %>% 
+  group_by(track_id) %>% 
+  sample_n(1)
+  
+duplicates_sorted_2 <- filtered_spotify %>%
+  group_by(track_id) %>%
+  filter(n() > 1) %>%
+  arrange(track_id)
+  
+
+# Convert mode and key to factors and turn genre into a binary variable (pop or not pop), make some other categorical/ one-hot encoded variables. Change duration_ms into minutes, rounded to one decimal place
+regular_data <-
+  filtered_spotify %>% 
+  mutate(mode = factor(mode),
+         key = factor(key),
+         explicit = factor(explicit, levels = c("True", "False")),
+         track_genre = factor(ifelse(grepl("pop", track_genre, ignore.case = TRUE), "Pop", "Not_Pop"), levels = c("Pop", "Not_Pop")),
+         )
+
+tempo_bottom_third = min(tempo) + (max(tempo) - min(tempo)) / 3
+tempo_top_third = max(tempo) - (max(tempo) - min(tempo)) / 3
+  
+one_hot_encoded <-
+  filtered_spotify %>% 
+  mutate(mode = factor(mode),
+         key = factor(key),
+         explicit = factor(explicit, levels = c("True", "False")),
+         track_genre = factor(ifelse(grepl("pop", track_genre, ignore.case = TRUE), "Pop", "Not_Pop"), levels = c("Pop", "Not_Pop")),
+         instrumentalness = factor(ifelse(instrumentalness >= 0.2, "Instrumental", "Not_Instrumental"), levels = c("Instrumental", "Not_Instrumental")),
+         spoken_word = factor(ifelse(speechiness >= 0.66, "yes", "no"), levels = c("yes", "no")),
+         average_speech = factor(ifelse((speechiness < 0.66) & (speechiness >= 0.33), "yes", "no"), levels = c("yes", "no")),
+         no_speech = factor(ifelse(speechiness < 0.33, "yes", "no"), levels = c("yes", "no")),
+         slow = factor(ifelse(tempo <= tempo_bottom_third, "slow", "not_slow")),
+    medium = factor(ifelse(tempo > tempo_bottom_third & tempo < tempo_top_third, "medium", "not_medium"), levels = c("medium", "not_medium")),
+    fast = factor(ifelse(tempo >= tempo_top_third, "fast", "not_fast"), levels = c("fast", "not_fast"))
+         )
+
+regular_data <- subset(regular_data, select = -c(X, track_id, track_name, album_name, artists))
+one_hot_encoded <- subset(one_hot_encoded, select = -c(X, track_id, track_name, album_name, artists, speechiness, instrumentalness, tempo))
+
+
+# Removing outliers from data:
+regular_data <- regular_data[-c(13795, 55236, 68307), ]
+one_hot_encoded <- one_hot_encoded[-c(13795, 55236, 68307), ]
+
+# Citation: asked ChatGPT how to run a mutate across multiple columns
+
+regular_data <- regular_data[sample(nrow(regular_data), 10000) , ]
+one_hot_encoded <- one_hot_encoded[sample(nrow(one_hot_encoded), 10000) , ]
+# Citation: https://stackoverflow.com/questions/8273313/sample-random-rows-in-dataframe
+
+# Train-test Split
+
+regular_train_indices <- createDataPartition(regular_data$popularity,
+                               p = 0.8)
+one_hot_indices<- createDataPartition(one_hot_encoded$popularity,
+                               p = 0.8)
+
+regular_train <- regular_data[regular_train_indices$Resample1,]
+regular_test <- regular_data[-regular_train_indices$Resample1,]
+
+one_hot_train <- one_hot_encoded[one_hot_indices$Resample1,]
+one_hot_test <- one_hot_encoded[-one_hot_indices$Resample1,]
+
+kcv = 10
+
+regular_cv_folds = createFolds(regular_train$popularity,
+                       k = kcv)
+one_hot_cv_folds = createFolds(one_hot_train$popularity,
+                       k = kcv)
+
+regular_fit_control <- trainControl(
+  method = "cv",
+  indexOut = regular_cv_folds,
+  selectionFunction="oneSE")
+
+one_hot_fit_control <- trainControl(
+  method = "cv",
+  indexOut = one_hot_cv_folds,
+  selectionFunction="oneSE")
+```
+
+``` {r PCA}
+data_standardized <- regular_data[, !(names(regular_data) %in% c("key", "mode", "explicit","popularity", "track_genre"))]
+View(data_standardized)
+#PC
+pc <- prcomp(data_standardized, center = TRUE, scale. = TRUE)
+# Calculate explained variance
+explained_variance <- pc$sdev^2 / sum(pc$sdev^2)
+
+# Create a Scree plot with better labeling
+plot(explained_variance, type = 'b', xlab = 'Principal Component', ylab = 'Proportion of Variance Explained', main = 'Scree Plot')
+
+# Calculate cumulative explained variance
+cumulative_variance <- cumsum(explained_variance)
+
+# Plot cumulative explained variance
+plot(cumulative_variance, type = 'b', xlab = 'Number of Principal Components', ylab = 'Cumulative Proportion of Variance Explained', main = 'Cumulative Explained Variance')
+
+
+# Select the first 8 principal components
+selected_pcs <- pc$x[, 1:6]
+
+
+# Create a data frame from the selected principal components
+pc_df <- data.frame(selected_pcs)
+
+
+# Extract the factor variables from the original dataset using base R
+factor_vars <- regular_data[, c("key", "mode", "explicit", "track_genre")]
+
+# Check the structure of the factor variables
+str(factor_vars)
+
+# Combine the principal components with the factor variables
+pca_data <- cbind(pc_df, factor_vars, popularity = regular_data$popularity)
+
+# Check the structure of the combined data
+str(combined_data)
+
+# PCA Train-Test Split
+
+pca_indices <- createDataPartition(pca_data$popularity,
+                               p = 0.8)
+
+
+pca_train <- pca_data[pca_indices$Resample1,]
+pca_test <- pca_data[-pca_indices$Resample1,]
+
+
+
+pca_cv_folds = createFolds(pca_train$popularity,
+                       k = kcv)
+
+pca_fit_control <- trainControl(
+  method = "cv",
+  indexOut = pca_cv_folds,
+  selectionFunction="oneSE")
+
+```
+
+``` {r Regular Data Boosting}
+r_boost_model_standard <- train(popularity ~ ., data = regular_train, 
+                 method = "gbm", 
+                 trControl = regular_fit_control,
+                 verbose = FALSE)
+
+print(r_boost_model_standard)
+plot(r_boost_model_standard)
+
+
+boost_model_grid <-  expand.grid(interaction.depth = c(1, 3, 5, 10), 
+                        n.trees = c(100, 500, 1000, 5000), 
+                        shrinkage = c(0.1),
+                        n.minobsinnode = 10)
+
+r_boost_model_optimized <- train(popularity ~ .,
+                data = regular_train,
+                method = "gbm",
+                trControl = regular_fit_control,
+                tuneGrid = boost_model_grid,
+                verbose = FALSE)
+print(r_boost_model_optimized)
+plot(r_boost_model_optimized)
+
+r_boost_model_optimized_rds <- write_rds(r_boost_model_optimized, "r_boost_model_optimized.rds")
+
+
+```
